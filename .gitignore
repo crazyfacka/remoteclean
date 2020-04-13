@@ -1,3 +1,6 @@
+.remoteclean
+keys/
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
