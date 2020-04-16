@@ -6,6 +6,7 @@ import "time"
 type Item struct {
 	Created  time.Time
 	FullPath string
+	Size     float64
 }
 
 // Items represents a set of items

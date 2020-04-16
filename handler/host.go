@@ -2,14 +2,48 @@ package handler
 
 import (
 	"bytes"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/crazyfacka/remoteclean/domain"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 )
+
+func deleteFile(conn *ssh.Client, f string) error {
+	session, err := conn.NewSession()
+	if err != nil {
+		return err
+	}
+
+	f = f[:len(f)-4]
+	if err := session.Run("rm \"" + f + ".*\""); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getGigs(size string) float64 {
+	var value float64
+
+	scale := size[len(size)-1:]
+	switch scale {
+	case "G":
+		value, _ = strconv.ParseFloat(size[:len(size)-1], 64)
+	case "M":
+		value, _ = strconv.ParseFloat(size[:len(size)-1], 64)
+		value /= 1000
+	case "K":
+		value, _ = strconv.ParseFloat(size[:len(size)-1], 64)
+		value /= (1000 * 1000)
+	}
+
+	return value
+}
 
 func stringFromSlice(tokens []string) string {
 	var sb strings.Builder
@@ -36,7 +70,7 @@ func GetContents(conn *ssh.Client, dirs []string) (domain.Items, error) {
 		}
 
 		session.Stdout = &output
-		if err := session.Run("find \"" + dir + "\" -type f -exec ls -1Rgp --full-time {} \\;"); err != nil {
+		if err := session.Run("find \"" + dir + "\" -type f -exec ls -1hRgp --full-time {} \\;"); err != nil {
 			return nil, err
 		}
 	}
@@ -48,11 +82,13 @@ func GetContents(conn *ssh.Client, dirs []string) (domain.Items, error) {
 	for _, line := range lines {
 		if re.MatchString(line) {
 			split := strings.Fields(line)
+			gb := getGigs(split[3])
 			t, _ := time.Parse(stapleTime, split[4]+" "+split[5])
 			fpath := stringFromSlice(split[7:])
 			items = append(items, domain.Item{
 				Created:  t,
 				FullPath: fpath,
+				Size:     gb,
 			})
 		}
 	}
@@ -82,4 +118,35 @@ func GetFreeSpace(conn *ssh.Client, mount string) (float64, error) {
 	}
 
 	return value, nil
+}
+
+// DeleteUntil deletes files until it reaches a certain amount of free space
+func DeleteUntil(conn *ssh.Client, its domain.Items, current float64, until float64, dry bool) error {
+	if dry {
+		log.Debug().Msg("Dryrun enabled")
+	}
+
+	amountDeleted := 0.0
+	amountToDelete := until - current
+	log.Info().Str("at_least", fmt.Sprintf("%.2fG", amountToDelete)).Msg("Erasing files")
+
+	for _, i := range its {
+		var err error
+		if dry {
+			err = nil
+		} else {
+			err = deleteFile(conn, i.FullPath)
+		}
+
+		if err == nil {
+			amountDeleted += i.Size
+			log.Info().Str("file", i.FullPath).Float64("amount", i.Size).Msg("Deleted")
+		}
+
+		if amountDeleted >= amountToDelete {
+			break
+		}
+	}
+
+	return nil
 }

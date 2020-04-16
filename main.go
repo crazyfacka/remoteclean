@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"sort"
 	"time"
@@ -17,7 +16,7 @@ import (
 func main() {
 	var dirs []string
 
-	//dryrun := flag.Bool("dry", false, "doesn't remove any file")
+	dryrun := flag.Bool("dry", false, "doesn't remove any file")
 	debug := flag.Bool("debug", false, "sets log level to debug")
 	flag.Parse()
 
@@ -54,8 +53,10 @@ func main() {
 		return
 	}
 
-	if space > viper.GetFloat64("space_threshold") {
-		log.Info().Msg("There is enough free space on remote")
+	log.Info().Float64("amount", space).Msg("Free space in GB")
+	threshold := viper.GetFloat64("space_threshold")
+	if space > threshold {
+		log.Info().Float64("threshold", threshold).Msg("There is enough free space on remote")
 		os.Exit(0)
 	}
 
@@ -70,5 +71,7 @@ func main() {
 	}
 
 	sort.Sort(items)
-	fmt.Println(items)
+	err = handler.DeleteUntil(remote, items, space, threshold*1.1, *dryrun)
+
+	log.Info().Msg("Done")
 }
