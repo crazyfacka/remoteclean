@@ -60,30 +60,26 @@ func GetContents(conn *ssh.Client, dirs []string) (domain.Items, error) {
 	return domain.Items(items), nil
 }
 
-// HasFreeSpace checks if there is free space on the host
-func HasFreeSpace(conn *ssh.Client, mount string) (bool, error) {
+// GetFreeSpace returns the free space on the host
+func GetFreeSpace(conn *ssh.Client, mount string) (float64, error) {
 	var output bytes.Buffer
 
 	session, err := conn.NewSession()
 	if err != nil {
-		return true, err
+		return -1, err
 	}
 
 	session.Stdout = &output
 	if err := session.Run("df -h \"" + mount + "\""); err != nil {
-		return true, err
+		return -1, err
 	}
 
 	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
-	percentage := strings.Fields(lines[1])[4]
-	value, err := strconv.Atoi(percentage[:len(percentage)-1])
+	gb := strings.Fields(lines[1])[3]
+	value, err := strconv.ParseFloat(gb[:len(gb)-1], 64)
 	if err != nil {
-		return true, err
+		return -1, err
 	}
 
-	if value > 50 {
-		return false, nil
-	}
-
-	return true, nil
+	return value, nil
 }

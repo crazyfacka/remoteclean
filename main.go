@@ -48,13 +48,13 @@ func main() {
 
 	mount := viper.GetString("mount")
 
-	hasSpace, err := handler.HasFreeSpace(remote, mount)
+	space, err := handler.GetFreeSpace(remote, mount)
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to check free space")
 		return
 	}
 
-	if hasSpace {
+	if space > viper.GetFloat64("space_threshold") {
 		log.Info().Msg("There is enough free space on remote")
 		os.Exit(0)
 	}
