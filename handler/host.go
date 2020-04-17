@@ -2,7 +2,9 @@ package handler
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -121,7 +123,7 @@ func GetFreeSpace(conn *ssh.Client, mount string) (float64, error) {
 }
 
 // DeleteUntil deletes files until it reaches a certain amount of free space
-func DeleteUntil(conn *ssh.Client, its domain.Items, current float64, until float64, dry bool) error {
+func DeleteUntil(conn *ssh.Client, its domain.Items, current float64, until float64, dry bool) {
 	if dry {
 		log.Debug().Msg("Dryrun enabled")
 	}
@@ -141,12 +143,37 @@ func DeleteUntil(conn *ssh.Client, its domain.Items, current float64, until floa
 		if err == nil {
 			amountDeleted += i.Size
 			log.Info().Str("file", i.FullPath).Float64("amount", i.Size).Msg("Deleted")
+		} else {
+			log.Error().Str("file", i.FullPath).Err(err).Msg("Error deleting file")
 		}
 
 		if amountDeleted >= amountToDelete {
 			break
 		}
 	}
+}
 
+// RefreshLibrary refreshes the player library
+func RefreshLibrary(host string) error {
+	reqBody, err := json.Marshal(map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "VideoLibrary.Clean",
+		"id":      1,
+		"params": map[string]bool{
+			"showdialogs": true,
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	log.Info().Msg("Refreshing player's library")
+	resp, err := http.Post("http://"+host+":8080/jsonrpc", "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
 	return nil
 }

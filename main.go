@@ -71,7 +71,11 @@ func main() {
 	}
 
 	sort.Sort(items)
-	err = handler.DeleteUntil(remote, items, space, threshold*1.1, *dryrun)
+	handler.DeleteUntil(remote, items, space, threshold*1.1, *dryrun)
+
+	if !*dryrun {
+		err = handler.RefreshLibrary(viper.GetStringMap("remote")["host"].(string))
+	}
 
 	log.Info().Msg("Done")
 }
