@@ -1,0 +1,15 @@
+{
+  "mount": "/dev/sda1",
+  "space_threshold": 50,
+  "remote": {
+    "host": "example.com",
+    "port": 22,
+    "user": "myself",
+    "key": "keys/remote",
+    "dirs": [
+        "/var/media/sda1/stuff_a",
+        "/var/media/sda1/stuff_b",
+        "/var/media/sda1/stuff_c"
+    ]
+  }
+}
